@@ -63,25 +63,39 @@ void setup() {
 }
 
 void loop() {
-  // right - left - forward detection
+  // === 1️⃣ Get wall info ===
   int iswallRight = wallRight();
   int iswallFront = wallFront();
-  int iswallLeft = wallRight();
+  int iswallLeft = wallLeft();
+  
+  // activate this part only when the move decision is completeted
+  if (finishedStep == 1) {
+    // === 2️⃣ Update solver and get next action ===
+    updateMaze(iswallFront, iswallLeft, iswallRight);
 
-  Action act = slover();
+    // === 3️⃣ Get the next move from flood-fill solver ===
+    Action currentAction = slover();
 
-  if (act == LEFT) {
-    turnLeft();
+    // === 4️⃣ Execute one complete movement (blocking) ===
+    if (act == LEFT) {
+      turnLeft();
+    }
+    else if (act == RIGHT) {
+      turnRight();
+    }
+    else if (act == FORWARD) {
+      moveF();
+    }
+    else if (act == BACK) {
+      moveB();
+    }
+    else {
+      Serial.println("IDLE error");
+      Pause();
+    }
   }
-  else if (act == RIGHT) {
-    turnRight();
-  }
-  else if (act == FORWARD) {
-    moveF();
-  }
-  else if (act == BACK) {
-    moveB();
-  }
+  finishedStep = 0;
+  
 
   moveF();
 
@@ -99,7 +113,7 @@ void loop() {
   // PID control
   float error = targetDistance - leftDistance;
 
-  integral = 0.7 * integral + ki * error;
+  integral = constrain(0.7 * integral + ki * error, -100, 100);
 
   float derivative = error - lastError;
 
@@ -247,7 +261,7 @@ void moveF() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
-    analogWrite(ENA, 240);
+  analogWrite(ENA, 240);
   analogWrite(ENB, 230);
 }
 void moveB() {

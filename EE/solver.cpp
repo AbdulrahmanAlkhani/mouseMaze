@@ -43,7 +43,7 @@ void initialize()
 /*
 Updates the maze's walls based on what the mouse can currently see
 */
-void updateMaze()
+void updateMaze(int iswallFront, int iswallLeft, int iswallRight)
 {
     int x = position.x;
     int y = position.y;
@@ -404,7 +404,7 @@ Action floodFill()
     }
 
     if (least_distance == 300)
-        optimal_move = RIGHT;
+        optimal_move = BACK;
 
     return optimal_move;
 }

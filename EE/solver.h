@@ -13,6 +13,7 @@ typedef enum Action
     LEFT,
     FORWARD,
     RIGHT,
+    BACK,
     IDLE
 } Action;
 
