@@ -52,7 +52,7 @@ struct Coordinate
 };
 
 void initialize();
-void updateMaze();      // updates the maze array with the walls around the mouse's current position
+void updateMaze(int iswallFront, int iswallLeft, int iswallRight);      // updates the maze array with the walls around the mouse's current position
 void updateDistances(); // the "floodfill" algorithm
 void resetDistances();
 int xyToSquare(int x, int y);

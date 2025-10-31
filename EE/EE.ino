@@ -47,6 +47,12 @@ int baseSpeed = 210;
 
 float lastError = 0;
 
+// for the duration instead of encouders:
+int duration;
+int finishedStep = 1;
+int previousTime;
+
+
 void setup() {
 
   Serial.begin(115200);
@@ -64,29 +70,65 @@ void setup() {
 
 void loop() {
   // === 1️⃣ Get wall info ===
+
   int iswallRight = wallRight();
   int iswallFront = wallFront();
   int iswallLeft = wallLeft();
-  
-  // activate this part only when the move decision is completeted
+  // if(Step)
+  // {
+  //   p = milllis()
+  //   Step=false
+  // }  
+  // currentActionivate this part only when the move decision is completeted
+
   if (finishedStep == 1) {
-    // === 2️⃣ Update solver and get next action ===
+    // === 2️⃣ Update solver and get next currentActionion ===
     updateMaze(iswallFront, iswallLeft, iswallRight);
 
     // === 3️⃣ Get the next move from flood-fill solver ===
-    Action currentAction = slover();
+    Action currentAction = solver();
 
     // === 4️⃣ Execute one complete movement (blocking) ===
-    if (act == LEFT) {
-      turnLeft();
+    if (currentAction == LEFT) {
+      duration = 400;
+      finishedStep = 0;
+      previousTime = millis();
+      turnLeft(); 
+      // if(!turned){
+      // turnLeft();
+      // turned=true;
+      // p = millis();
+      // }
+      // if(currentMillis - previousMillis >= duration){
+      //   finishedStep=0;
+      // }
     }
-    else if (act == RIGHT) {
+    else if (currentAction == RIGHT) {
+      duration = 400;
+      finishedStep = 0;
+      previousTime = millis();
       turnRight();
     }
-    else if (act == FORWARD) {
-      moveF();
+    else if (currentAction == FORWARD) {
+      duration = 720;
+      finishedStep = 0;
+      previousTime = millis();
+      Pause();
+
+      digitalWrite(IN1, HIGH);
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, HIGH);
+      digitalWrite(IN4, LOW);
+      analogWrite(ENA, 240);
+      analogWrite(ENB, 230);
+      delay(720);
+
+      Pause();
     }
-    else if (act == BACK) {
+    else if (currentAction == BACK) {
+      duration = 800;
+      finishedStep = 0;
+      previousTime = millis();
       moveB();
     }
     else {
@@ -94,10 +136,18 @@ void loop() {
       Pause();
     }
   }
-  finishedStep = 0;
-  
 
-  moveF();
+  if (millis() - previousTime >= duration) {
+    finishedStep = 1;
+  
+    // stop all the motors
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    analogWrite(ENA, 0);
+    analogWrite(ENB, 0);
+  }
 
   // sensor reading in cm
   float leftDistance = sonarLeft.ping_cm();
@@ -132,42 +182,42 @@ void loop() {
 
   lastError = error;
 
-  if (frontDistance < 4) {
+  // if (frontDistance < 4) {
 
-    if (rightDistance > 10) {
-      turnRight();
-      StepHalfCell();
+  //   if (rightDistance > 10) {
+  //     turnRight();
+  //     StepHalfCell();
 
-    } else if (leftDistance > 10) {
-      turnLeft();
-      StepHalfCell();
-    } else if (leftDistance < 7 && rightDistance < 5) {
+  //   } else if (leftDistance > 10) {
+  //     turnLeft();
+  //     StepHalfCell();
+  //   } else if (leftDistance < 7 && rightDistance < 5) {
     
-       Pause();
-        moveB();
-        delay(740);
-        Pause();
+  //      Pause();
+  //       moveB();
+  //       delay(740);
+  //       Pause();
 
-        if (leftDistance > 3) {
-          turnLeft();
+  //       if (leftDistance > 3) {
+  //         turnLeft();
            
-        } 
-        else if (rightDistance >3) 
-        {
-          turnRight();
+  //       } 
+  //       else if (rightDistance >3) 
+  //       {
+  //         turnRight();
           
-        }
-      }
+  //       }
+  //     }
     
-  }
-  else if (frontDistance > 20 )
-  {
-    if(leftDistance<=7&&rightDistance==20)
-    {
-      StepHalfCell();
-      turnRight();
-    }
-  }
+  // }
+  // else if (frontDistance > 20 )
+  // {
+  //   if(leftDistance<=7&&rightDistance==20)
+  //   {
+  //     StepHalfCell();
+  //     turnRight();
+  //   }
+  // }
 
   // Serial.print(speedA);
   // Serial.print("   ");

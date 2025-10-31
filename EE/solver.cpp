@@ -315,7 +315,7 @@ Action solver()
     else if (reached_center && distances[position.x][position.y] == 0)
         reached_center = 0;
 
-    updateMaze();
+    updateMaze(iswallFront, iswallLeft, iswallRight);
     updateDistances();
 
     Action action = floodFill();
