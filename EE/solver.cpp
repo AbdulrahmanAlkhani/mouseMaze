@@ -164,7 +164,7 @@ void resetDistances()
 
     // Set goal cells
     if (!reached_center)
-    {
+    { 
         if (MAZE_SIZE % 2 == 0)
         {
             distances[MAZE_SIZE / 2][MAZE_SIZE / 2] = 0;
@@ -304,6 +304,25 @@ void updatePosition(Action nextAction)
         break;
     case WEST:
         position.x -= 1;
+        break;
+    }
+
+    if (nextAction != BACK)
+        return;
+
+    switch (heading)
+    {
+    case NORTH:
+        position.y -= 1;
+        break;
+    case SOUTH:
+        position.y += 1;
+        break;
+    case EAST:
+        position.x -= 1;
+        break;
+    case WEST:
+        position.x += 1;
         break;
     }
 }

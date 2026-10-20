@@ -1,10 +1,11 @@
-
+#include <ArduinoOTA.h>
+#include <WiFi.h>
 #include <NewPing.h>
 #include <ESP32Encoder.h>
 #include "solver.h"
 #include "queue.h"
 
-// Left sensor 
+// Left sensor
 #define TRIG_LEFT 5
 #define ECHO_LEFT 17
 
@@ -52,8 +53,8 @@ int duration;
 int finishedStep = 1;
 int previousTime;
 
-
-void setup() {
+void setup()
+{
 
   Serial.begin(115200);
 
@@ -66,34 +67,50 @@ void setup() {
   pinMode(ENB, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
+
+  WiFi.begin("your SSID ", "Password");
+
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(20);
+  }
+  ArduinoOTA.begin();
+  TelnetStream.begin();
 }
 
-void loop() {
-  // === 1️⃣ Get wall info ===
+void loop()
+{
+  ArduinoOTA.handle();
 
+  Action currentAction = IDLE;
+
+  // === 1️⃣ Get wall info ===
   int iswallRight = wallRight();
   int iswallFront = wallFront();
   int iswallLeft = wallLeft();
+
   // if(Step)
   // {
   //   p = milllis()
   //   Step=false
-  // }  
+  // }
   // currentActionivate this part only when the move decision is completeted
 
-  if (finishedStep == 1) {
+  if (finishedStep == 1)
+  {
     // === 2️⃣ Update solver and get next currentActionion ===
     updateMaze(iswallFront, iswallLeft, iswallRight);
 
     // === 3️⃣ Get the next move from flood-fill solver ===
-    Action currentAction = solver();
+    currentAction = solver();
 
     // === 4️⃣ Execute one complete movement (blocking) ===
-    if (currentAction == LEFT) {
+    if (currentAction == LEFT)
+    {
       duration = 400;
       finishedStep = 0;
       previousTime = millis();
-      turnLeft(); 
+      turnLeft();
       // if(!turned){
       // turnLeft();
       // turned=true;
@@ -103,16 +120,19 @@ void loop() {
       //   finishedStep=0;
       // }
     }
-    else if (currentAction == RIGHT) {
+    else if (currentAction == RIGHT)
+    {
       duration = 400;
       finishedStep = 0;
       previousTime = millis();
       turnRight();
     }
-    else if (currentAction == FORWARD) {
+    else if (currentAction == FORWARD)
+    {
       duration = 720;
       finishedStep = 0;
       previousTime = millis();
+      // moveF();
       Pause();
 
       digitalWrite(IN1, HIGH);
@@ -125,21 +145,24 @@ void loop() {
 
       Pause();
     }
-    else if (currentAction == BACK) {
-      duration = 800;
+    else if (currentAction == BACK)
+    {
+      duration = 720;
       finishedStep = 0;
       previousTime = millis();
       moveB();
     }
-    else {
+    else
+    {
       Serial.println("IDLE error");
       Pause();
     }
   }
 
-  if (millis() - previousTime >= duration) {
+  if (millis() - previousTime >= duration)
+  {
     finishedStep = 1;
-  
+
     // stop all the motors
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
@@ -149,38 +172,42 @@ void loop() {
     analogWrite(ENB, 0);
   }
 
-  // sensor reading in cm
-  float leftDistance = sonarLeft.ping_cm();
-  float frontDistance = sonarFront.ping_cm();
-  float rightDistance = sonarRight.ping_cm();
+  if (currentAction == FORWARD && finishedStep == 0)
+  {
+    // sensor reading in cm
+    float leftDistance = sonarLeft.ping_cm();
+    float frontDistance = sonarFront.ping_cm();
+    float rightDistance = sonarRight.ping_cm();
 
+    if (leftDistance == 0)
+      leftDistance = MAX_DISTANCE;
+    if (frontDistance >= 0 && frontDistance < 1)
+      frontDistance = 30;
+    if (rightDistance == 0)
+      rightDistance = MAX_DISTANCE;
 
-  if (leftDistance == 0) leftDistance = MAX_DISTANCE;
-  if (frontDistance >= 0 && frontDistance < 1) frontDistance = 30;
-  if (rightDistance == 0) rightDistance = MAX_DISTANCE;
+    // PID control
+    float error = targetDistance - leftDistance;
 
+    integral = constrain(0.7 * integral + ki * error, -100, 100);
 
-  // PID control
-  float error = targetDistance - leftDistance;
+    float derivative = error - lastError;
 
-  integral = constrain(0.7 * integral + ki * error, -100, 100);
+    float control = kp * error + kd * derivative + integral;
 
-  float derivative = error - lastError;
+    // adjust motor speeds
+    int speedA = baseSpeed + control;
+    int speedB = baseSpeed - control;
 
-  float control = kp * error + kd * derivative + integral;
+    // speeds constrains
+    speedA = constrain(speedA, 90, 255);
+    speedB = constrain(speedB, 90, 255);
 
-  // adjust motor speeds
-  int speedA = baseSpeed + control;
-  int speedB = baseSpeed - control;
+    analogWrite(ENA, speedA);
+    analogWrite(ENB, speedB);
 
-  // speeds constrains
-  speedA = constrain(speedA, 90, 255);
-  speedB = constrain(speedB, 90, 255);
-
-  analogWrite(ENA, speedA);
-  analogWrite(ENB, speedB);
-
-  lastError = error;
+    lastError = error;
+  }
 
   // if (frontDistance < 4) {
 
@@ -192,7 +219,7 @@ void loop() {
   //     turnLeft();
   //     StepHalfCell();
   //   } else if (leftDistance < 7 && rightDistance < 5) {
-    
+
   //      Pause();
   //       moveB();
   //       delay(740);
@@ -200,15 +227,15 @@ void loop() {
 
   //       if (leftDistance > 3) {
   //         turnLeft();
-           
-  //       } 
-  //       else if (rightDistance >3) 
+
+  //       }
+  //       else if (rightDistance >3)
   //       {
   //         turnRight();
-          
+
   //       }
   //     }
-    
+
   // }
   // else if (frontDistance > 20 )
   // {
@@ -230,39 +257,51 @@ void loop() {
   Serial.println(frontDistance);
 }
 
-int wallRight() {
+int wallRight()
+{
   float rightDistance = sonarRight.ping_cm();
 
-  if (rightDistance > 0 && rightDistance < 5) {
+  if (rightDistance > 0 && rightDistance < 5)
+  {
     return 1;
-  } else return 0;
+  }
+  else
+    return 0;
 }
 
-int wallLeft() {
+int wallLeft()
+{
   float leftDistance = sonarLeft.ping_cm();
-  if (leftDistance > 0 && leftDistance < 5) {
+  if (leftDistance > 0 && leftDistance < 5)
+  {
     return 1;
-  } else return 0;
+  }
+  else
+    return 0;
 }
 
-int wallFront() {
+int wallFront()
+{
   float frontDistance = sonarFront.ping_cm();
   Serial.println(frontDistance);
-  if (frontDistance > 0 && frontDistance < 5) {
+  if (frontDistance > 0 && frontDistance < 5)
+  {
     return 1;
-  } else return 0;
+  }
+  else
+    return 0;
 }
-
 
 void Pause()
-{ 
-     digitalWrite(IN1, LOW);
-     digitalWrite(IN2, LOW);
-     digitalWrite(IN3, LOW);
-     digitalWrite(IN4, LOW);
-  delay (400);
+{
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  delay(400);
 }
-void turnRight() {
+void turnRight()
+{
 
   Pause();
 
@@ -270,14 +309,14 @@ void turnRight() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-  analogWrite(ENA, 255);
-  analogWrite(ENB, 255);
+  analogWrite(ENA, 200);
+  analogWrite(ENB, 200);
   delay(500);
 
   Pause();
-  moveF();
 }
-void StepHalfCell() {
+void StepHalfCell()
+{
   Pause();
 
   digitalWrite(IN1, HIGH);
@@ -291,7 +330,8 @@ void StepHalfCell() {
   Pause();
   moveF();
 }
-void turnLeft() {
+void turnLeft()
+{
 
   Pause();
 
@@ -299,14 +339,14 @@ void turnLeft() {
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
-  analogWrite(ENA, 255);
-  analogWrite(ENB, 255);
+  analogWrite(ENA, 200);
+  analogWrite(ENB, 200);
   delay(490);
   Pause();
-  moveF();
 }
 
-void moveF() {
+void moveF()
+{
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
@@ -314,11 +354,13 @@ void moveF() {
   analogWrite(ENA, 240);
   analogWrite(ENB, 230);
 }
-void moveB() {
+void moveB()
+{
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-    analogWrite(ENA, 240);
+  analogWrite(ENA, 240);
   analogWrite(ENB, 230);
+  Pause();
 }
